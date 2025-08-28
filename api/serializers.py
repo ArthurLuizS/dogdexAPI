@@ -30,16 +30,6 @@ class HealthSerializer(serializers.ModelSerializer):
 
 
 class DogSerializer(serializers.ModelSerializer):
-    # owner = OwnerSerializer(read_only=True)
-    # owner_data = serializers.DictField(write_only=True)
-    # name = serializers.CharField(max_length=20)
-    # age = serializers.IntegerField()
-    # birth_date = serializers.DateTimeField()
-    # gender = serializers.CharField(max_length=5)
-    # size = serializers.CharField(max_length=10)
-    # breed = serializers.CharField(max_length=100)
-    # instagram = serializers.CharField(max_length=100)
-
     class Meta:
         model = Dog
         fields = '__all__'
