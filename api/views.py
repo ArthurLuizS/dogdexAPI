@@ -4,14 +4,14 @@ from rest_framework.response import Response
 
 from .models import Dog, Owner, Health, ServiceType, Stay, ServiceRecord
 from django.contrib.auth.models import Group, User
-from rest_framework import permissions, viewsets, status
+from rest_framework import permissions, viewsets, status, generics
 from rest_framework.decorators import action
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import OrderingFilter, SearchFilter
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
 
-from api.serializers import (GroupSerializer, UserSerializer, DogSerializer, OwnerSerializer, HealthSerializer,StaySerializer, ServiceTypeSerializer, ServiceRecordSerializer)
+from api.serializers import (GroupSerializer, UserSerializer, DogSerializer, OwnerSerializer, HealthSerializer,StaySerializer, ServiceTypeSerializer, ServiceRecordSerializer, OwnerFullSerializer)
 
 
 class UserViewSet(viewsets.ModelViewSet):
@@ -30,6 +30,24 @@ class GroupViewSet(viewsets.ModelViewSet):
     queryset = Group.objects.all().order_by('name')
     serializer_class = GroupSerializer
     permission_classes = [permissions.IsAuthenticated]
+
+
+class OwnerFullCreateView(generics.CreateAPIView):
+    """
+    Endpoint para cadastrar Tutor + Dog + Health de uma vez.
+    """
+    queryset = Owner.objects.all()
+    serializer_class = OwnerFullSerializer
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        owner = serializer.save()  # cria Owner, Dog e Health
+        return Response(
+            OwnerFullSerializer(owner).data,
+            status=status.HTTP_201_CREATED
+        )
+
 
 class DogViewSet(viewsets.ModelViewSet):
     queryset = Dog.objects.all()
@@ -68,27 +86,27 @@ class DogViewSet(viewsets.ModelViewSet):
     #     ),
     # )
     # @swagger_auto_schema(responses={200: timeline_schema})
-    # @action(detail=True, methods=["get"], url_path="timeline")
-    # def timeline(self, request, pk=None):
-    #     """Retorna a timeline unificada do cão (stays + services)."""
-    #     dog = self.get_object()
-    #     stays = list(Stay.objects.filter(dog=dog).values("id", "check_in", "check_out", "price_total", "notes"))
-    #     for s in stays:
-    #         s.update({
-    #             "event_kind": "STAY",
-    #             "timestamp": s["check_in"],
-    #         })
-    #     services = list(ServiceRecord.objects.filter(dog=dog).values("id", "service_type__name", "performed_at", "day",
-    #                                                              "price", "currency", "metadata", "notes", "created_at"))
-    #     for e in services:
-    #         e.update({
-    #             "event_kind": "SERVICE",
-    #             "service_type_name": e.pop("service_type__name"),
-    #             "timestamp": e["performed_at"] or e["day"],
-    #         })
-    #     merged = stays + services
-    #     merged.sort(key=lambda x: (x["timestamp"] or x.get("created_at")), reverse=True)
-    #     return Response(merged)
+    @action(detail=True, methods=["get"], url_path="timeline")
+    def timeline(self, request, pk=None):
+        """Retorna a timeline unificada do cão (stays + services)."""
+        dog = self.get_object()
+        stays = list(Stay.objects.filter(dog=dog).values("id", "check_in", "check_out", "price_total", "notes"))
+        for s in stays:
+            s.update({
+                "event_kind": "STAY",
+                "timestamp": s["check_in"],
+            })
+        services = list(ServiceRecord.objects.filter(dog=dog).values("id", "service_type__name", "performed_at", "day",
+                                                                 "price", "currency", "metadata", "notes", "created_at"))
+        for e in services:
+            e.update({
+                "event_kind": "SERVICE",
+                "service_type_name": e.pop("service_type__name"),
+                "timestamp": e["performed_at"] or e["day"],
+            })
+        merged = stays + services
+        merged.sort(key=lambda x: (x["timestamp"] or x.get("created_at")), reverse=True)
+        return Response(merged)
 
 
 
@@ -139,9 +157,9 @@ class StayViewSet(viewsets.ModelViewSet):
 
 
 class ServiceRecordViewSet(viewsets.ModelViewSet):
-    queryset = ServiceRecord.objects.select_related("dog", "owner", "service_type", "stay").all()
+    queryset = ServiceRecord.objects.select_related("dog", "owner", "service_type").all()
     serializer_class = ServiceRecordSerializer
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
-    filterset_fields = ["dog", "owner", "service_type", "stay", "day"]
+    filterset_fields = ["dog", "owner", "service_type", "day"]
     search_fields = ["dog__name", "owner__name", "notes"]
     ordering_fields = ["performed_at", "day", "created_at", "price"]

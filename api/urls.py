@@ -12,6 +12,7 @@ router.register(r'service-types', views.ServiceTypeViewSet, basename='service-ty
 router.register(r'stays', views.StayViewSet, basename='stay')
 router.register(r'services', views.ServiceRecordViewSet, basename='service-record')
 urlpatterns = [
+    path("onboarding/", views.OwnerFullCreateView.as_view(), name="owner-onboarding"),
     path('', include(router.urls)),
     path('api-auth/', include('rest_framework.urls', namespace='rest_framework'))
 ]
