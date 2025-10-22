@@ -2,12 +2,16 @@ from django.shortcuts import render
 from django.http import HttpResponse
 from rest_framework.response import Response
 
-from .models import  Dog, Owner, Health
+from .models import Dog, Owner, Health, ServiceType, Stay, ServiceRecord
 from django.contrib.auth.models import Group, User
 from rest_framework import permissions, viewsets, status
 from rest_framework.decorators import action
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework.filters import OrderingFilter, SearchFilter
+from drf_yasg import openapi
+from drf_yasg.utils import swagger_auto_schema
 
-from api.serializers import GroupSerializer, UserSerializer, DogSerializer, OwnerSerializer, HealthSerializer
+from api.serializers import (GroupSerializer, UserSerializer, DogSerializer, OwnerSerializer, HealthSerializer,StaySerializer, ServiceTypeSerializer, ServiceRecordSerializer)
 
 
 class UserViewSet(viewsets.ModelViewSet):
@@ -49,11 +53,47 @@ class DogViewSet(viewsets.ModelViewSet):
             "owner": OwnerSerializer(owner).data,
         })
 
+    # timeline_schema = openapi.Response(
+    #     description="Timeline",
+    #     schema=openapi.Schema(
+    #         type=openapi.TYPE_ARRAY,
+    #         items=openapi.Items(
+    #             type=openapi.TYPE_OBJECT,
+    #             properties={
+    #                 "id": openapi.Schema(type=openapi.TYPE_STRING, format="uuid"),
+    #                 "event_kind": openapi.Schema(type=openapi.TYPE_STRING),
+    #                 "timestamp": openapi.Schema(type=openapi.TYPE_STRING, format="date-time"),
+    #             },
+    #         ),
+    #     ),
+    # )
+    # @swagger_auto_schema(responses={200: timeline_schema})
+    # @action(detail=True, methods=["get"], url_path="timeline")
+    # def timeline(self, request, pk=None):
+    #     """Retorna a timeline unificada do cão (stays + services)."""
+    #     dog = self.get_object()
+    #     stays = list(Stay.objects.filter(dog=dog).values("id", "check_in", "check_out", "price_total", "notes"))
+    #     for s in stays:
+    #         s.update({
+    #             "event_kind": "STAY",
+    #             "timestamp": s["check_in"],
+    #         })
+    #     services = list(ServiceRecord.objects.filter(dog=dog).values("id", "service_type__name", "performed_at", "day",
+    #                                                              "price", "currency", "metadata", "notes", "created_at"))
+    #     for e in services:
+    #         e.update({
+    #             "event_kind": "SERVICE",
+    #             "service_type_name": e.pop("service_type__name"),
+    #             "timestamp": e["performed_at"] or e["day"],
+    #         })
+    #     merged = stays + services
+    #     merged.sort(key=lambda x: (x["timestamp"] or x.get("created_at")), reverse=True)
+    #     return Response(merged)
 
 
 
 class OwnerViewSet(viewsets.ModelViewSet):
-    queryset = Owner.objects.all()
+    queryset = Owner.objects.all().order_by("name")
     serializer_class = OwnerSerializer
 
     def retrieve(self, request, *args, **kwargs):
@@ -83,3 +123,25 @@ class OwnerViewSet(viewsets.ModelViewSet):
 class HealthViewSet(viewsets.ModelViewSet):
     queryset = Health.objects.all()
     serializer_class = HealthSerializer
+
+
+class ServiceTypeViewSet(viewsets.ModelViewSet):
+    queryset = ServiceType.objects.all().order_by("name")
+    serializer_class = ServiceTypeSerializer
+
+
+class StayViewSet(viewsets.ModelViewSet):
+    queryset = Stay.objects.all().select_related("dog", "dog__owner").all()
+    serializer_class = StaySerializer
+    filter_backends = [DjangoFilterBackend, OrderingFilter]
+    filterset_fields = ["dog", "owner"]
+    ordering_fields = ["check_in", "check_out"]
+
+
+class ServiceRecordViewSet(viewsets.ModelViewSet):
+    queryset = ServiceRecord.objects.select_related("dog", "owner", "service_type", "stay").all()
+    serializer_class = ServiceRecordSerializer
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filterset_fields = ["dog", "owner", "service_type", "stay", "day"]
+    search_fields = ["dog__name", "owner__name", "notes"]
+    ordering_fields = ["performed_at", "day", "created_at", "price"]

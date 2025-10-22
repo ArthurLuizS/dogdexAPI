@@ -8,6 +8,9 @@ router.register(r'groups', views.GroupViewSet)
 router.register(r'dogs', views.DogViewSet)
 router.register(r'owners', views.OwnerViewSet)
 router.register(r'healths', views.HealthViewSet)
+router.register(r'service-types', views.ServiceTypeViewSet, basename='service-type')
+router.register(r'stays', views.StayViewSet, basename='stay')
+router.register(r'services', views.ServiceRecordViewSet, basename='service-record')
 urlpatterns = [
     path('', include(router.urls)),
     path('api-auth/', include('rest_framework.urls', namespace='rest_framework'))
